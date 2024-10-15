@@ -16,6 +16,7 @@ MAX_DIMS = 32
 
 class IndexingError(RuntimeError):
     "Exception raised for indexing errors."
+
     pass
 
 
@@ -44,7 +45,10 @@ def index_to_position(index: Index, strides: Strides) -> int:
     """
 
     # TODO: Implement for Task 2.1.
-    raise NotImplementedError("Need to implement for Task 2.1")
+    position = 0
+    for i in range(len(index)):
+        position += index[i] * strides[i]
+    return position
 
 
 def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
@@ -61,7 +65,10 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
 
     """
     # TODO: Implement for Task 2.1.
-    raise NotImplementedError("Need to implement for Task 2.1")
+    strides: Strides = array(strides_from_shape(shape))
+    for i in range(len(strides)):
+        out_index[i] = ordinal // strides[i]
+        ordinal = ordinal % strides[i]
 
 
 def broadcast_index(
@@ -84,7 +91,16 @@ def broadcast_index(
         None
     """
     # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    if len(big_shape) < len(shape):
+        raise IndexingError(f"Cannot broadcast {big_shape} to {shape}")
+
+    starting_dim = len(big_shape) - len(shape)
+    for i in range(starting_dim, len(big_shape)):
+        j = i - starting_dim
+        if shape[j] == 1:
+            out_index[j] = 0
+        else:
+            out_index[j] = big_index[i]
 
 
 def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
@@ -102,7 +118,34 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
         IndexingError : if cannot broadcast
     """
     # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    min_dims = min(len(shape1), len(shape2))
+    overlapping_shape: Sequence[int] = []
+    s1_pointer = len(shape1) - min_dims
+    s2_pointer = len(shape2) - min_dims
+
+    while s1_pointer < len(shape1) and s2_pointer < len(shape2):
+        if shape1[s1_pointer] == shape2[s2_pointer]:
+            overlapping_shape.append(shape1[s1_pointer])
+        elif shape1[s1_pointer] == 1:
+            overlapping_shape.append(shape2[s2_pointer])
+        elif shape2[s2_pointer] == 1:
+            overlapping_shape.append(shape1[s1_pointer])
+        else:
+            raise IndexingError(
+                "Cannot broadcast shapes: {shape1[i]} is incompatible with {shape2[i]} at dimension {i}"
+            )
+        s1_pointer += 1
+        s2_pointer += 1
+
+    max_dims = max(len(shape1), len(shape2))
+    if len(shape1) > len(shape2):
+        broadcasted_shape = shape1[: max_dims - min_dims] + tuple(overlapping_shape)
+    elif len(shape1) < len(shape2):
+        broadcasted_shape = shape2[: max_dims - min_dims] + tuple(overlapping_shape)
+    else:
+        broadcasted_shape = tuple(overlapping_shape)
+
+    return broadcasted_shape
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
@@ -223,7 +266,9 @@ class TensorData:
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
         # TODO: Implement for Task 2.1.
-        raise NotImplementedError("Need to implement for Task 2.1")
+        strides = [self.strides[i] for i in order]
+        shape = [self.shape[i] for i in order]
+        return TensorData(self._storage, tuple(shape), tuple(strides))
 
     def to_string(self) -> str:
         s = ""

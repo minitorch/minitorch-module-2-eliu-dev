@@ -72,7 +72,7 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
     def visit(var: Variable) -> None:
         if var.unique_id in seen or var.is_constant():
             return
-        if not var.isleaf():
+        if not var.is_leaf():
             for parent in var.parents:
                 if not parent.is_constant():
                     visit(parent)
