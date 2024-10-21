@@ -20,8 +20,7 @@ if TYPE_CHECKING:
 
 
 class MapProto(Protocol):
-    def __call__(self, x: Tensor, out: Optional[Tensor] = ..., /) -> Tensor:
-        ...
+    def __call__(self, x: Tensor, out: Optional[Tensor] = ..., /) -> Tensor: ...
 
 
 class TensorOps:
@@ -136,7 +135,7 @@ class SimpleOps(TensorOps):
 
     @staticmethod
     def zip(
-        fn: Callable[[float, float], float]
+        fn: Callable[[float, float], float],
     ) -> Callable[["Tensor", "Tensor"], "Tensor"]:
         """
         Higher-order tensor zip function ::
@@ -269,7 +268,20 @@ def tensor_map(fn: Callable[[float], float]) -> Any:
         in_strides: Strides,
     ) -> None:
         # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        out_size = 1
+        in_index = [0] * len(in_shape)
+        for i in out_shape:
+            out_size *= i
+
+        # for each position in the larger output array,
+        # compute the corresponding position in the input shape
+        out_index = [0] * len(out_shape)
+        for i in range(out_size):
+            to_index(i, out_shape, out_index)
+            broadcast_index(out_index, out_shape, in_shape, in_index)
+            in_position = index_to_position(in_index, in_strides)
+            out_position = index_to_position(out_index, out_strides)
+            out[out_position] = fn(in_storage[in_position])
 
     return _map
 
@@ -319,7 +331,29 @@ def tensor_zip(fn: Callable[[float, float], float]) -> Any:
         b_strides: Strides,
     ) -> None:
         # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        # print(
+        #     f"_zip: a_shape: {tuple(a_shape.tolist())} b_shape: {tuple(b_shape.tolist())}",
+        #     flush=True,
+        # )
+
+        # broadcast_shape expects a tuple so convert a_shape and b_shape to tuples
+        broadcast_shape = shape_broadcast(
+            tuple(a_shape.tolist()), tuple(b_shape.tolist())
+        )
+        out_size = 1
+        for i in broadcast_shape:
+            out_size *= i
+        a_index = [0] * len(a_shape)
+        b_index = [0] * len(b_shape)
+        out_index = [0] * len(out_shape)
+        for i in range(out_size):
+            to_index(i, broadcast_shape, out_index)
+            broadcast_index(out_index, broadcast_shape, a_shape, a_index)
+            broadcast_index(out_index, broadcast_shape, b_shape, b_index)
+            a_position = index_to_position(a_index, a_strides)
+            b_position = index_to_position(b_index, b_strides)
+            out_position = index_to_position(out_index, out_strides)
+            out[out_position] = fn(a_storage[a_position], b_storage[b_position])
 
     return _zip
 
@@ -355,7 +389,34 @@ def tensor_reduce(fn: Callable[[float, float], float]) -> Any:
         reduce_dim: int,
     ) -> None:
         # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        out_size = int(operators.prod(out_shape))
+        reduce_size = a_shape[reduce_dim]
+
+        # Iterate over all elements in the output tensor
+        for i in range(out_size):
+            # Convert flat index to multidimensional index
+            out_index = [0] * len(out_shape)
+            to_index(i, out_shape, out_index)
+
+            # Initialize the accumulator with the first element
+            a_index = list(out_index)
+            a_index[reduce_dim] = 0
+            initial_position = index_to_position(a_index, a_strides)
+            accumulator = a_storage[initial_position]
+
+            # Reduce along the specified dimension
+            for j in range(1, reduce_size):
+                a_index[reduce_dim] = j
+                current_position = index_to_position(a_index, a_strides)
+                accumulator = fn(accumulator, a_storage[current_position])
+
+            out_position = index_to_position(out_index, out_strides)
+            out[out_position] = accumulator
+
+        # print(
+        #     f"----dim: {reduce_dim} ({a_shape}) a: {a_storage} out: {out} fn: {fn.__name__}",
+        #     flush=True,
+        # )
 
     return _reduce
 
