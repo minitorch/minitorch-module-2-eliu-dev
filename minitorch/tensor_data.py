@@ -118,34 +118,22 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
         IndexingError : if cannot broadcast
     """
     # TODO: Implement for Task 2.2.
-    min_dims = min(len(shape1), len(shape2))
-    overlapping_shape: Sequence[int] = []
-    s1_pointer = len(shape1) - min_dims
-    s2_pointer = len(shape2) - min_dims
+    max_len = max(len(shape1), len(shape2))
+    shape1 = (1,) * (max_len - len(shape1)) + shape1
+    shape2 = (1,) * (max_len - len(shape2)) + shape2
 
-    while s1_pointer < len(shape1) and s2_pointer < len(shape2):
-        if shape1[s1_pointer] == shape2[s2_pointer]:
-            overlapping_shape.append(shape1[s1_pointer])
-        elif shape1[s1_pointer] == 1:
-            overlapping_shape.append(shape2[s2_pointer])
-        elif shape2[s2_pointer] == 1:
-            overlapping_shape.append(shape1[s1_pointer])
+    result = []
+    for s1, s2 in zip(reversed(shape1), reversed(shape2)):
+        if s1 == s2:
+            result.append(s1)
+        elif s1 == 1:
+            result.append(s2)
+        elif s2 == 1:
+            result.append(s1)
         else:
-            raise IndexingError(
-                "Cannot broadcast shapes: {shape1[i]} is incompatible with {shape2[i]} at dimension {i}"
-            )
-        s1_pointer += 1
-        s2_pointer += 1
+            raise IndexingError(f"Cannot broadcast shapes {shape1} and {shape2}")
 
-    max_dims = max(len(shape1), len(shape2))
-    if len(shape1) > len(shape2):
-        broadcasted_shape = shape1[: max_dims - min_dims] + tuple(overlapping_shape)
-    elif len(shape1) < len(shape2):
-        broadcasted_shape = shape2[: max_dims - min_dims] + tuple(overlapping_shape)
-    else:
-        broadcasted_shape = tuple(overlapping_shape)
-
-    return broadcasted_shape
+    return tuple(reversed(result))
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
@@ -268,6 +256,9 @@ class TensorData:
         # TODO: Implement for Task 2.1.
         strides = [self.strides[i] for i in order]
         shape = [self.shape[i] for i in order]
+        # print(
+        #     f"order: {order} --- strides (original):  {self.strides} strides(new) {strides} --- shape(original): {self.shape} shape(new): {shape}"
+        # )
         return TensorData(self._storage, tuple(shape), tuple(strides))
 
     def to_string(self) -> str:

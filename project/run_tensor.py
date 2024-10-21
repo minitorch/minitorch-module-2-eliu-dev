@@ -22,7 +22,9 @@ class Network(minitorch.Module):
 
     def forward(self, x):
         # TODO: Implement for Task 2.5.
-        raise NotImplementedError("Need to implement for Task 2.5")
+        middle = self.layer1.forward(x)
+        end = self.layer2.forward(middle).relu()
+        return self.layer3.forward(end).sigmoid()
 
 
 class Linear(minitorch.Module):
@@ -31,10 +33,36 @@ class Linear(minitorch.Module):
         self.weights = RParam(in_size, out_size)
         self.bias = RParam(out_size)
         self.out_size = out_size
+        print(f"x: {self.bias.value.shape}")
 
     def forward(self, x):
         # TODO: Implement for Task 2.5.
-        raise NotImplementedError("Need to implement for Task 2.5")
+        print(
+            f"multiplying x: {x.shape} ({x}) and weights: {self.weights.value.shape} ({self.weights.value})"
+        )
+
+        def conform_shape(data, weights):
+            data_index = len(data) - 1
+            weights_index = len(weights) - 1
+            result = []
+            while data_index >= 0 and weights_index >= 0:
+                if data[data_index] == weights[weights_index]:
+                    result.append(data[data_index])
+                elif data[data_index] == 1:
+                    result.append(weights[weights_index])
+                elif weights[weights_index] == 1:
+                    result.append(data[data_index])
+                else:
+                    result.append(1)
+                data_index -= 1
+                weights_index -= 1
+
+            return tuple(result)
+
+        x_view = x.view(*conform_shape(x.shape, self.weights.value.shape))
+        out = x.backend.mul_zip(x_view, self.weights.value)
+        out = out.backend.add_zip(out, self.bias.value)
+        return out
 
 
 def default_log_fn(epoch, total_loss, correct, losses):
@@ -53,7 +81,6 @@ class TensorTrain:
         return self.model.forward(minitorch.tensor(X))
 
     def train(self, data, learning_rate, max_epochs=500, log_fn=default_log_fn):
-
         self.learning_rate = learning_rate
         self.max_epochs = max_epochs
         self.model = Network(self.hidden_layers)

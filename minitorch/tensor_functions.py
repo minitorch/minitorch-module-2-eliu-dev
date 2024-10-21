@@ -5,7 +5,7 @@ Implementation of the autodifferentiation Functions for Tensor.
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -191,7 +191,7 @@ class Sum(Function):
 
 class All(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor, dim: Tensor) -> Tensor:
+    def forward(ctx: Context, a: Tensor, dim: Optional[Tensor] = None) -> Tensor:
         if dim is not None:
             return a.f.mul_reduce(a, int(dim.item()))
         else:
@@ -203,12 +203,11 @@ class LT(Function):
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
         # TODO: Implement for Task 2.3.
         return a.f.lt_zip(a, b)
-        raise NotImplementedError("Need to implement for Task 2.3")
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         # TODO: Implement for Task 2.4.
-        return 0.0, 0.0
+        return grad_output.zeros(), grad_output.zeros()
 
 
 class EQ(Function):
@@ -220,7 +219,7 @@ class EQ(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         # TODO: Implement for Task 2.4.
-        return 0.0, 0.0
+        return grad_output.zeros(), grad_output.zeros()
 
 
 class IsClose(Function):
@@ -234,14 +233,28 @@ class Permute(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, order: Tensor) -> Tensor:
         # TODO: Implement for Task 2.3.
+        order_tuple = tuple(int(i) for i in order.to_numpy().flatten())
         ctx.save_for_backward(order)
-        return a.f.permute_map(a, order)
+        return a._new(a._tensor.permute(*order_tuple))
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
         # TODO: Implement for Task 2.4.
         (order,) = ctx.saved_values
-        return grad_output.f.permute_back_map(grad_output, order)
+        order_list = order.to_numpy().flatten()
+
+        def reverse_permute(permute: list) -> list:
+            reverse_permute = [0] * len(permute)
+            for index, value in enumerate(permute):
+                if int(index) != int(value):
+                    reverse_permute[int(value)] = int(index)
+                else:
+                    reverse_permute[int(index)] = int(index)
+            return reverse_permute
+
+        reverse_order = tuple(reverse_permute(order_list))
+        print(f"order {order_list} -- reverse_order {reverse_order}", flush=True)
+        return grad_output._new(grad_output._tensor.permute(*reverse_order)), 0.0
 
 
 class View(Function):

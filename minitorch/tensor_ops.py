@@ -389,38 +389,34 @@ def tensor_reduce(fn: Callable[[float, float], float]) -> Any:
         reduce_dim: int,
     ) -> None:
         # TODO: Implement for Task 2.3.
-        print(
-            f"_reduce: a_shape: {a_shape} dim: {reduce_dim} out_shape: {out_shape}",
-            flush=True,
-        )
         out_size = int(operators.prod(out_shape))
         reduce_size = a_shape[reduce_dim]
 
+        # Iterate over all elements in the output tensor
         for i in range(out_size):
+            # Convert flat index to multidimensional index
             out_index = [0] * len(out_shape)
             to_index(i, out_shape, out_index)
 
-            # Initialize the accumulator
-            accumulator = 0.0
+            # Initialize the accumulator with the first element
+            a_index = list(out_index)
+            a_index[reduce_dim] = 0
+            initial_position = index_to_position(a_index, a_strides)
+            accumulator = a_storage[initial_position]
 
-            # Create a_index with the correct length
-            a_index = [0] * len(a_shape)
-
-            # Fill a_index with values from out_index, leaving the reduce_dim as 0
-            out_dim = 0
-            for a_dim in range(len(a_shape)):
-                if a_dim != reduce_dim:
-                    a_index[a_dim] = out_index[out_dim]
-                    out_dim += 1
-
-            # Iterate over the reduce dimension
-            for j in range(reduce_size):
+            # Reduce along the specified dimension
+            for j in range(1, reduce_size):
                 a_index[reduce_dim] = j
-                a_pos = index_to_position(a_index, a_strides)
-                accumulator += a_storage[a_pos]
+                current_position = index_to_position(a_index, a_strides)
+                accumulator = fn(accumulator, a_storage[current_position])
 
-            out_pos = index_to_position(out_index, out_strides)
-            out[out_pos] = accumulator
+            out_position = index_to_position(out_index, out_strides)
+            out[out_position] = accumulator
+
+        # print(
+        #     f"----dim: {reduce_dim} ({a_shape}) a: {a_storage} out: {out} fn: {fn.__name__}",
+        #     flush=True,
+        # )
 
     return _reduce
 
